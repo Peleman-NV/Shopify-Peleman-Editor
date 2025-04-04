@@ -1,0 +1,4 @@
+{
+  "name": "ProductTemplateField",
+  "welcome": "Bienvenue dans l'extension {{TARGET}}!"
+}

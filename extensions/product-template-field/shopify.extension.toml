@@ -1,0 +1,14 @@
+api_version = "2025-01"
+
+[[extensions]]
+name = "Product Template Field"
+handle = "producttemplatefield"
+type = "ui_extension"
+
+[[extensions.targeting]]
+module = "./src/BlockExtension.jsx"
+target = "admin.product-details.block.render"
+
+[[extensions.metafields]]
+namespace = "peleman"
+key = "template_id"
