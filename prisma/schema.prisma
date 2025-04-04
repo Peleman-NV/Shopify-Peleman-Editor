@@ -26,10 +26,11 @@ model ShopSettings {
 }
 
 model ProductTemplate {
-  id         Int     @id @default(autoincrement())
-  shop       String
-  productId  Int
-  templateId String
-
+  id                        Int     @id @default(autoincrement())
+  shop                      String
+  productId                 BigInt
+  templateId                String
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
   @@unique([shop, productId], name: "shop_product")
 }

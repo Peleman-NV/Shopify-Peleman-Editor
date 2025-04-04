@@ -3,12 +3,12 @@
 client_id = "7ffcbce4eace7b2dd2df7eeb1cd4e040"
 name = "Peleman Editor"
 handle = "peleman-editor"
-application_url = "https://epson-informational-pulling-where.trycloudflare.com"
+application_url = "https://crack-eel-deeply.ngrok-free.app"
 embedded = true
 
 [build]
 include_config_on_deploy = true
-automatically_update_urls_on_dev = true
+automatically_update_urls_on_dev = false
 
 [webhooks]
 api_version = "2025-01"
@@ -19,10 +19,11 @@ scopes = "write_products"
 
 [auth]
 redirect_urls = [
-  "https://epson-informational-pulling-where.trycloudflare.com/auth/callback",
-  "https://epson-informational-pulling-where.trycloudflare.com/auth/shopify/callback",
-  "https://epson-informational-pulling-where.trycloudflare.com/api/auth/callback"
+  "https://crack-eel-deeply.ngrok-free.app/auth/callback",
+  "https://crack-eel-deeply.ngrok-free.app/auth/shopify/callback",
+  "https://crack-eel-deeply.ngrok-free.app/api/auth/callback"
 ]
 
 [pos]
 embedded = false
+

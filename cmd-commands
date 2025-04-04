@@ -1,0 +1,9 @@
+cmd-commands
+
+// START SERVER
+
+ngrok http --url=crack-eel-deeply.ngrok-free.app 3000
+
+shopify app dev --tunnel-url=https://crack-eel-deeply.ngrok-free.app:3000
+
+shopify app deploy

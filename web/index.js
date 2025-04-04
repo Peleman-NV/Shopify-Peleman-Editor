@@ -11,6 +11,8 @@ import PrivacyWebhookHandlers from "./privacy.js";
 import fetch from "node-fetch";
 import FormData from "form-data";
 
+import cors from 'cors';
+
 const PORT = parseInt(
   process.env.BACKEND_PORT || process.env.PORT || "3000",
   10
@@ -22,6 +24,14 @@ const STATIC_PATH =
     : `${process.cwd()}/frontend/`;
 
 const app = express();
+
+
+app.use(cors({
+   origin: 'https://dev-peleman.myshopify.com',
+   methods: ['GET', 'POST'],
+   allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use("/api", shopify.validateAuthenticatedSession());
 // Set up Shopify authentication and webhook handling
 app.get(shopify.config.auth.path, shopify.auth.begin());
@@ -78,8 +88,7 @@ app.use(serveStatic(STATIC_PATH, { index: false }));
 import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
-
-
+// Save settings
 app.post("/api/save-settings", express.json(), async (req, res) => {
   try {
     // console.log("🔄 Incoming settings save request...");
@@ -105,6 +114,7 @@ app.post("/api/save-settings", express.json(), async (req, res) => {
   }
 });
 
+// Load settings
 app.get("/api/load-settings", async (req, res) => {
   try {
     const session = res.locals.shopify.session; // 🛠️ Make sure this is at the top!
@@ -128,6 +138,7 @@ app.get("/api/load-settings", async (req, res) => {
   }
 });
 
+// Test button in app settings to test Editor Connection
 app.post("/api/test-pie-connection", express.json(), async (req, res) => {
   const { pie_editor_url, pie_customer_id, pie_api_key } = req.body;
 
@@ -176,67 +187,135 @@ app.get("/api/shop", async (req, res) => {
   }
 });
 
-// Get template ID for a product
-app.get("/api/product-template/:id", async (req, res) => {
-  const session = res.locals.shopify?.session;
-  const productId = parseInt(req.params.id);
+// App Proxy Route Handler
+app.post('/apps/app-proxy', async (req, res) => {
+  const { shop, productId, templateId } = req.body;
+  console.log("Received data:", req.body);
 
-  console.log("🔍 Incoming GET /api/product-template/:id");
-  console.log("➡️ Shop:", session?.shop);
-  console.log("➡️ Product ID:", productId);
-
-  if (!session?.shop || !productId) {
-    console.error("❌ Missing shop or productId");
-    return res.status(400).json({ error: "Missing shop or productId" });
+  if (!shop || !productId || !templateId) {
+    return res.status(400).json({ error: "Missing required fields" });
   }
 
   try {
-    const record = await prisma.productTemplate.findUnique({
+    // Save the templateId to the database using Prisma
+
+// Save the templateId to the database using Prisma
+    const productTemplate = await prisma.productTemplate.upsert({
       where: {
         shop_product: {
-          shop: session.shop,
-          productId,
+          shop: shop,
+          productId: productId,
         },
       },
+      update: {
+        templateId: templateId,
+      },
+      create: {
+        shop: shop,
+        productId: productId,
+        templateId: templateId,
+      },
     });
-
-    console.log("📦 Found record:", record);
-    res.status(200).json({ templateId: record?.templateId || "" });
-  } catch (err) {
-    console.error("❌ DB Error", err);
+    
+    // console.log("Template ID saved to database:", productTemplate);
+    res.json({ success: true, message: "Template ID saved" });
+  } catch (error) {
+    console.error("❌ Failed to save template ID", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Save template ID for a product
-app.post("/api/product-template", express.json(), async (req, res) => {
-  const session = res.locals.shopify?.session;
-  const { productId, templateId } = req.body;
-
-  if (!session?.shop || !productId) {
-    return res.status(400).json({ error: "Missing shop or productId" });
-  }
-
-  await prisma.productTemplate.upsert({
-    where: {
-      shop_product: {
-        shop: session.shop,
-        productId,
-      },
-    },
-    create: {
-      shop: session.shop,
-      productId,
-      templateId,
-    },
-    update: {
-      templateId,
-    },
-  });
-
-  res.status(200).json({ success: true });
+// App Proxy Route Handler
+app.post('/api/proxy', (req, res) => {
+  const { shop, productId, templateId } = req.body;
+  console.log("Received data:", req.body);
+  
+  // Handle saving the templateId (logic goes here)
+  
+  res.json({ success: true, message: "Template ID saved" });
 });
 
+// Proxy endpoint for saving the template ID
+app.post('/api/save-template-id', async (req, res) => {
+  const { shop, productId, templateId } = req.body;
+
+  if (!shop || !productId || !templateId) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    // Shopify API endpoint
+    const url = `https://${shop}/admin/api/2025-01/products/${productId}/metafields.json`;
+
+    // Prepare the data for the metafield
+    const metafieldData = {
+      metafield: {
+        namespace: 'peleman_editor',
+        key: 'template_id',
+        value: templateId,
+        value_type: 'string',
+      },
+    };
+
+    // Make the request to the Shopify Admin API to create or update the metafield
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': 'your-shopify-access-token', // Add your Shopify access token here
+      },
+      body: JSON.stringify(metafieldData),
+    });
+
+    const jsonResponse = await response.json();
+
+    if (response.ok) {
+      // Optionally store the template ID in your database
+      await prisma.productTemplate.upsert({
+        where: { productId: Number(productId) },
+        update: { templateId },
+        create: { productId: Number(productId), templateId },
+      });
+
+      return res.status(200).json({ success: true, message: 'Template ID saved successfully' });
+    } else {
+      return res.status(500).json({ error: jsonResponse.errors });
+    }
+  } catch (error) {
+    console.error('Error saving template ID to Shopify', error);
+    return res.status(500).json({ error: 'Error saving template ID' });
+  }
+});
+
+app.post('/api/app-proxy', async (req, res) => {
+  const { shop, productId, templateId } = req.body;
+
+  if (!shop || !productId || !templateId) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    await prisma.productTemplate.upsert({
+      where: {
+        shop_product: {
+          shop,
+          productId: Number(productId),
+        },
+      },
+      update: { templateId },
+      create: {
+        shop,
+        productId: Number(productId),
+        templateId,
+      },
+    });
+
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error("❌ Failed to save to DB", err);
+    return res.status(500).json({ error: 'DB save failed' });
+  }
+});
 
 app.get("/*", shopify.ensureInstalledOnShop(), async (_req, res) => {
   return res
@@ -250,8 +329,3 @@ app.get("/*", shopify.ensureInstalledOnShop(), async (_req, res) => {
 });
 
 app.listen(PORT);
-
-
-
-
-
